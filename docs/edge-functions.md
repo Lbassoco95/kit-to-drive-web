@@ -32,3 +32,18 @@ lados: Supabase (Edge Functions → Secrets) y el entorno de mati-api/mati-admin
 que es quien lo manda. Sin él la función responde 503; con él mal puesto, 401.
 Prueba sin riesgo: `GET .../functions/v1/mati-admin-bridge/health` → 503 = falta
 el secreto, 401 = existe.
+
+## Puente v2 (2026-10-09)
+
+Desplegado en producción (versión 7 en Supabase, `verify_jwt = false`). La
+migración `20261009000001_mati_admin_modulos_soporte` está aplicada y
+registrada en `migraciones_aplicadas`: `app_modulos` (25 módulos, todos
+encendidos), `soporte_tickets`, `soporte_mensajes` y `bridge_bitacora`.
+
+Rutas: ver el encabezado de `supabase/functions/mati-admin-bridge/index.ts`.
+Pruebas sin red: `supabase/functions/mati-admin-bridge/_tests/`.
+
+Nota operativa: al aplicar SQL por la conexión de Supabase, un lote con
+`DROP POLICY IF EXISTS` se quedó colgado (timeout de 60 s) y no creó nada; las
+mismas sentencias por separado, sin el `DROP`, funcionaron. En tablas nuevas el
+`DROP` no hace falta.
