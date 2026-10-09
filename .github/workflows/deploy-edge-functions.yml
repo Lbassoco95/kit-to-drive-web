@@ -1,0 +1,35 @@
+# Despliega UNA Edge Function a la vez, y sólo a mano (workflow_dispatch).
+# Nada se despliega solo al hacer push: producción cambia cuando alguien lo pide.
+#
+# Secretos del repo (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN  token personal de Supabase
+#   SUPABASE_PROJECT_ID    dmhzhyeivvuliumcgsmm
+name: Deploy Edge Function
+
+on:
+  workflow_dispatch:
+    inputs:
+      function:
+        description: "Función a desplegar"
+        type: choice
+        required: true
+        options:
+          - admin-create-user
+          - admin-update-user
+          - admin-reset-user-password
+          - complete-password-change
+          - mati-admin-bridge
+          - seed-demo-users
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Desplegar
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy "${{ inputs.function }}" --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"

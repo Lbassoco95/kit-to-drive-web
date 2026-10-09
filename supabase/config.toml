@@ -9,3 +9,14 @@ verify_jwt = true
 
 [functions.complete-password-change]
 verify_jwt = true
+
+[functions.admin-update-user]
+verify_jwt = true
+
+[functions.admin-reset-user-password]
+verify_jwt = true
+
+# Sin JWT a propósito: la llama mati-api con un secreto compartido
+# (MATI_ADMIN_BRIDGE_SECRET) y la propia función lo valida. Así está desplegada.
+[functions.mati-admin-bridge]
+verify_jwt = false
