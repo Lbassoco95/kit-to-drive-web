@@ -226,7 +226,7 @@ async function createUser(admin: Admin, body: Record<string, unknown>) {
   // El correo va PRIMERO: si no sale, no se crea nada y nadie queda con una cuenta sin forma de entrar.
   const password = generarPassword();
   const envio = await enviarAcceso(email, nombre, password, false);
-  if (!envio.ok) throw new HttpError(envio.motivo === "no_configurado" ? 503 : 502, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO");
+  if (!envio.ok) throw new HttpError(424, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO"); // 424: mati-api lo reenvía con su mensaje
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
@@ -332,7 +332,7 @@ async function resetPassword(admin: Admin, userId: string, body: Record<string, 
   // (si no, la persona quedaría sin poder entrar y nadie conocería la nueva).
   const password = generarPassword();
   const envio = await enviarAcceso(email, nombre, password, true);
-  if (!envio.ok) throw new HttpError(envio.motivo === "no_configurado" ? 503 : 502, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO");
+  if (!envio.ok) throw new HttpError(424, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO"); // 424: mati-api lo reenvía con su mensaje
 
   const { error } = await admin.auth.admin.updateUserById(userId, {
     password,
