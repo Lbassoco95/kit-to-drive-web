@@ -20,7 +20,8 @@
  *   PATCH  /tickets/:id                 POST /tickets/:id/messages
  *   GET    /audit?limit=
  *
- * Toda acción que cambia algo queda en public.bridge_bitacora (sin contraseñas).
+ * Toda acción que cambia algo queda en public.bridge_bitacora (sin contraseñas),
+ * con el actor que mandó mati-api en `x-mati-actor`.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -49,7 +50,8 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-type Admin = ReturnType<typeof adminClient>;
+// El cliente lleva el actor (quién pidió la acción desde MATI Admin) para la bitácora.
+type Admin = ReturnType<typeof adminClient> & { actor?: string | null };
 
 function adminClient() {
   return createClient(
@@ -151,7 +153,9 @@ function generateTemporaryPassword(): string {
 /** Bitácora: nunca debe recibir contraseñas ni secretos. Si falla, no tumba la acción. */
 async function audit(admin: Admin, accion: string, objetivo: string | null, detalle: Record<string, unknown> = {}) {
   try {
-    const { error } = await admin.from("bridge_bitacora").insert({ accion, objetivo, detalle });
+    const { error } = await admin
+      .from("bridge_bitacora")
+      .insert({ accion, objetivo, detalle: { ...detalle, actor: admin.actor ?? null } });
     if (error) console.error("bridge_bitacora:", error.message);
   } catch (e) {
     console.error("bridge_bitacora:", e instanceof Error ? e.message : String(e));
@@ -598,7 +602,9 @@ serve(async (req) => {
       console.warn("bridge: intento sin credencial válida", req.method, relativePath(req));
       return json({ error: "Unauthorized" }, 401);
     }
-    return await route(req, adminClient());
+    // Quién pidió la acción desde MATI Admin (lo manda mati-api; sólo informativo).
+    const actor = (req.headers.get("x-mati-actor") ?? "").trim().slice(0, 120) || null;
+    return await route(req, Object.assign(adminClient(), { actor }));
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, err.status);
     console.error("bridge error:", err instanceof Error ? err.message : String(err));
