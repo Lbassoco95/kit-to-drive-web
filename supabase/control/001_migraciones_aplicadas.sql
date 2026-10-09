@@ -26,6 +26,7 @@ COMMENT ON TABLE public.migraciones_aplicadas IS
 
 -- Sin políticas: la leen y escriben el SQL editor y el service role, no la app.
 ALTER TABLE public.migraciones_aplicadas ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.migraciones_aplicadas FROM anon, authenticated;
 
 INSERT INTO public.migraciones_aplicadas (script, estado, notas) VALUES
   ('20260503015306_f99960c9-701f-452a-aab9-4d1216cb57ae', 'aplicado', 'verificada con diagnostico_esquema.sql 2026-10-09'),
