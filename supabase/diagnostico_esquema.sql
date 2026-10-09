@@ -34,6 +34,7 @@
 --   trigger|tabla.trigger              · indice|nombre[|texto del índice]
 --   secuencia|nombre                  · tabla|nombre y vista|nombre
 --   politica|tabla.politica[|texto]    · tipo|enum.valor
+--   (política de storage: politica|storage.objects.nombre[|texto])
 --   restriccion|tabla.restriccion[|texto]
 --   sin_privilegio|funcion(tipos)|rol  · ese rol NO debe poder ejecutarla
 --
@@ -226,7 +227,9 @@ WITH esperado(script, objeto) AS (VALUES
   ('20260904000001_solicitudes_a_fabrica',        'columna|avisos.accion'),
   ('20260904000001_solicitudes_a_fabrica',        'columna|avisos.usuario_destino'),
   ('20260904000001_solicitudes_a_fabrica',        'funcion|responder_solicitud(uuid,boolean,text)'),
-  ('20260904000001_solicitudes_a_fabrica',        'politica|avisos.leer avisos de mi area|usuario_destino'),
+  -- La política la redefinió después 20260925000001 (ahora usa destinatario_id),
+  -- así que aquí sólo se pide que exista.
+  ('20260904000001_solicitudes_a_fabrica',        'politica|avisos.leer avisos de mi area'),
 
   -- El cilindraje y el color del motocarro ya armado los declara Fábrica.
   -- Misma firma que 20260828000001, así que se reconoce por el cuerpo: la
@@ -317,7 +320,8 @@ WITH esperado(script, objeto) AS (VALUES
   ('20260925193000_security_hardening_fase2', 'funcion|puede_leer_inventario(uuid)'),
   ('20260925193000_security_hardening_fase2', 'politica|inventario_chasis.inv_select_operativo'),
   ('20260925193000_security_hardening_fase2', 'politica|compras.leer compras|es_compras'),
-  ('20260925193000_security_hardening_fase2', 'politica|cuentas_por_cobrar.cxc_select|es_finanzas'),
+  -- cxc_select ya no se revisa aquí: 20261007000002 la redefinió a propósito
+  -- (la visibilidad la da el RLS de clientes). Se revisa en ese script.
 
   ('20260925210000_disable_public_signups', 'funcion|reject_public_signups()'),
 
@@ -398,6 +402,7 @@ WITH esperado(script, objeto) AS (VALUES
   ('20261007000001_compras_decisiones_y_modo_prueba', 'funcion|compras_parametros_guardia()'),
   ('20261007000001_vendedor_solo_su_informacion', 'funcion|ve_todo_comercial(uuid)|supervisa_area'),
   ('20261007000002_vendedor_clientes_credito', 'politica|clientes.leer clientes|ve_todo_comercial'),
+  ('20261007000002_vendedor_clientes_credito', 'politica|cuentas_por_cobrar.cxc_select|clientes'),
   ('20261007000003_vendedor_crm_asignacion', 'politica|crm_actividades.crm_act_select|ve_todo_comercial'),
   ('20261007000001_modulo_tareas',                'tabla|tareas'),
   ('20261007000001_modulo_tareas',                'funcion|usuarios_asignables()|area_nivel_de'),
@@ -495,10 +500,11 @@ WITH esperado(script, objeto) AS (VALUES
                    AND t.tgname  = split_part(r.nombre, '.', 2)
                    AND NOT t.tgisinternal)
       WHEN 'politica' THEN
+        -- `storage.objects.nombre` apunta al esquema storage; sin prefijo, public.
         EXISTS (SELECT 1 FROM pg_policies p
-                 WHERE p.schemaname = 'public'
-                   AND p.tablename  = split_part(r.nombre, '.', 1)
-                   AND p.policyname = split_part(r.nombre, '.', 2)
+                 WHERE p.schemaname = CASE WHEN r.nombre LIKE 'storage.%' THEN 'storage' ELSE 'public' END
+                   AND p.tablename  = split_part(regexp_replace(r.nombre, '^storage\.', ''), '.', 1)
+                   AND p.policyname = split_part(regexp_replace(r.nombre, '^storage\.', ''), '.', 2)
                    AND (r.detalle IS NULL
                         OR COALESCE(p.qual,'') || ' ' || COALESCE(p.with_check,'') LIKE '%' || r.detalle || '%'))
       WHEN 'secuencia' THEN

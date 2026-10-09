@@ -574,3 +574,11 @@ debe alternar entre *Todo el equipo* y *Solo las mías*, y en las remisiones de
 otro vendedor **no** deben aparecer los botones de asignar chasis / subir PDF /
 proponer fecha / cancelar: la tarjeta queda de sólo lectura (folio, cliente,
 avance, chasis y entregas).
+
+## Control de migraciones aplicadas
+
+`supabase/control/001_migraciones_aplicadas.sql` crea `public.migraciones_aplicadas`
+y la siembra con el estado verificado el 2026-10-09 (todo aplicado salvo dos
+scripts superados). **Cada vez que pegues un script de `migrations/` en el SQL
+editor, registra una fila** al final de la misma sesión. Para comprobar que la
+base y el repo coinciden, corre `diagnostico_esquema.sql`.
