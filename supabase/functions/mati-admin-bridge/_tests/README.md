@@ -4,4 +4,5 @@ Cubren autenticación, enrutado y validación de entrada con un cliente de
 Supabase falso. NO prueban las rutas que tocan la base.
 
     deno run --allow-env --import-map _tests/import_map.json _tests/test.ts
+    deno run --allow-env _tests/acceso.test.ts   # correo de acceso (compartido)
     deno check --import-map _tests/import_map.json index.ts   # tipos

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
 
 const ALLOWED_ORIGINS = [
   "https://kit-to-drive.vercel.app",
@@ -57,15 +58,17 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email, password, nombre_completo, codigo_vendedor, force_password_change } = body;
+    // La contraseña ya no la escribe nadie: se genera aquí y viaja solo por correo.
+    // Si un cliente viejo manda `password` o `force_password_change`, se ignoran.
+    const { email, nombre_completo, codigo_vendedor } = body;
 
-    if (!email || !password || !nombre_completo) {
-      return new Response(JSON.stringify({ error: "email, password y nombre_completo son obligatorios" }), {
+    if (!email || !nombre_completo) {
+      return new Response(JSON.stringify({ error: "email y nombre_completo son obligatorios" }), {
         status: 400, headers: { ...CORS, "Content-Type": "application/json" }
       });
     }
 
-    const mustChangePassword = force_password_change === true;
+    const mustChangePassword = true;
 
     const AREAS = ["comercial", "fabrica", "almacen_logistica", "administracion", "compras", "direccion"];
     const NIVELES = ["operador", "supervisor", "admin"];
@@ -141,6 +144,15 @@ serve(async (req) => {
       if (users.length < 200) break;
     }
 
+    // El correo va PRIMERO: si no sale, no se crea ni se cambia nada.
+    const password = generarPassword();
+    const envio = await enviarAcceso(String(email).toLowerCase().trim(), String(nombre_completo).trim(), password, !!existente);
+    if (!envio.ok) {
+      return new Response(JSON.stringify({ error: MENSAJE_CORREO[envio.motivo], code: "CORREO_FALLO" }), {
+        status: envio.motivo === "no_configurado" ? 503 : 502, headers: { ...CORS, "Content-Type": "application/json" }
+      });
+    }
+
     let uid: string;
 
     // Flag de privilegio en app_metadata (solo Admin API); user_metadata es editable por el cliente.
@@ -200,7 +212,7 @@ serve(async (req) => {
       role: rolDerivado,
     }, { onConflict: "user_id" });
 
-    return new Response(JSON.stringify({ user_id: uid, email, nombre_completo, area, nivel, role: rolDerivado }), {
+    return new Response(JSON.stringify({ user_id: uid, email, nombre_completo, area, nivel, role: rolDerivado, correo: { enviado: true } }), {
       status: 200, headers: { ...CORS, "Content-Type": "application/json" }
     });
 

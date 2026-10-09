@@ -36,4 +36,3 @@ eq("body arreglo 400", (await call("/users", { method: "POST", headers: h, body:
 eq("body enorme 413", (await call("/users", { method: "POST", headers: h, body: JSON.stringify({ a: "x".repeat(70000) }) }))[0], 413);
 eq("alta sin campos 400", (await call("/users", { method: "POST", headers: h, body: "{}" }))[0], 400);
 eq("alta área inválida 400", (await call("/users", { method: "POST", headers: h, body: JSON.stringify({ email: "a@b.co", password: "12345678", nombre_completo: "X", area: "x", nivel: "admin" }) }))[0], 400);
-eq("alta pw corta 400", (await call("/users", { method: "POST", headers: h, body: JSON.stringify({ email: "a@b.co", password: "123", nombre_completo: "X", area: "compras", nivel: "operador" }) }))[0], 400);

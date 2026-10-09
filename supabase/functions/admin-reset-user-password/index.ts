@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -9,22 +10,6 @@ const JSON_HEADERS = { ...CORS, "Content-Type": "application/json" };
 
 const respond = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
-
-const generateTemporaryPassword = () => {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%&*";
-  const all = upper + lower + digits + symbols;
-  const random = (characters: string) => characters[crypto.getRandomValues(new Uint32Array(1))[0] % characters.length];
-  const password = [random(upper), random(lower), random(digits), random(symbols)];
-  while (password.length < 14) password.push(random(all));
-  for (let i = password.length - 1; i > 0; i--) {
-    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
-    [password[i], password[j]] = [password[j], password[i]];
-  }
-  return password.join("");
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -70,7 +55,18 @@ serve(async (req) => {
     const { data: target, error: targetError } = await supabaseAdmin.auth.admin.getUserById(user_id);
     if (targetError || !target.user) return respond({ error: "Usuario no encontrado" }, 404);
 
-    const temporaryPassword = generateTemporaryPassword();
+    const email = target.user.email;
+    if (!email) return respond({ error: "La persona no tiene correo registrado" }, 400);
+    const { data: perfil } = await supabaseAdmin.from("profiles").select("nombre_completo").eq("id", user_id).maybeSingle();
+
+    // La contraseña la genera esta función y viaja solo por correo; nadie la ve.
+    // El correo va PRIMERO: si no sale, no se cambia nada (la persona sigue pudiendo entrar).
+    const temporaryPassword = generarPassword();
+    const envio = await enviarAcceso(email, perfil?.nombre_completo || email, temporaryPassword, true);
+    if (!envio.ok) {
+      return respond({ error: MENSAJE_CORREO[envio.motivo], code: "CORREO_FALLO" }, envio.motivo === "no_configurado" ? 503 : 502);
+    }
+
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
       password: temporaryPassword,
       app_metadata: {
@@ -90,7 +86,7 @@ serve(async (req) => {
       .eq("id", user_id);
     if (profileError) return respond({ error: profileError.message }, 500);
 
-    return respond({ temporary_password: temporaryPassword });
+    return respond({ ok: true, correo: { enviado: true } });
   } catch (error) {
     return respond({ error: error instanceof Error ? error.message : "Error inesperado" }, 500);
   }

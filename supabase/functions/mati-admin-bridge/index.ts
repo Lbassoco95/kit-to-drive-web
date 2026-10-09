@@ -25,6 +25,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
 
 const AREAS = ["comercial", "fabrica", "almacen_logistica", "administracion", "compras", "direccion"] as const;
 const NIVELES = ["operador", "supervisor", "admin"] as const;
@@ -134,22 +135,6 @@ function parseAreaNivel(area: unknown, nivel: unknown): { area: Area; nivel: Niv
   return { area: area as Area, nivel: nivel as Nivel };
 }
 
-function generateTemporaryPassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%&*";
-  const all = upper + lower + digits + symbols;
-  const pick = (chars: string) => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
-  const out = [pick(upper), pick(lower), pick(digits), pick(symbols)];
-  while (out.length < 14) out.push(pick(all));
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out.join("");
-}
-
 /** Bitácora: nunca debe recibir contraseñas ni secretos. Si falla, no tumba la acción. */
 async function audit(admin: Admin, accion: string, objetivo: string | null, detalle: Record<string, unknown> = {}) {
   try {
@@ -226,18 +211,22 @@ async function setRole(admin: Admin, userId: string, area: Area, nivel: Nivel) {
 
 async function createUser(admin: Admin, body: Record<string, unknown>) {
   const email = (str(body.email, "email", 254, true) as string).toLowerCase();
-  const password = typeof body.password === "string" ? body.password : "";
+  // La contraseña la genera el puente y viaja solo por correo; si el cliente manda una, se ignora.
   const nombre = str(body.nombre_completo, "nombre_completo", 120, true) as string;
   const codigo = str(body.codigo_vendedor, "codigo_vendedor", 40);
-  const forzar = body.force_password_change !== false; // por defecto SÍ obliga a cambiarla
+  const forzar = true; // siempre se exige cambiar la contraseña temporal al primer ingreso
   const { area, nivel } = parseAreaNivel(body.area, body.nivel);
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, "email inválido");
-  if (password.length < 8) throw new HttpError(400, "La contraseña debe tener al menos 8 caracteres");
 
   // Nunca pisa la contraseña de una cuenta que ya existe.
   const { data: existente } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
   if (existente) throw new HttpError(409, "Ya existe un usuario con ese correo", "EMAIL_EXISTS");
+
+  // El correo va PRIMERO: si no sale, no se crea nada y nadie queda con una cuenta sin forma de entrar.
+  const password = generarPassword();
+  const envio = await enviarAcceso(email, nombre, password, false);
+  if (!envio.ok) throw new HttpError(envio.motivo === "no_configurado" ? 503 : 502, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO");
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
@@ -271,8 +260,8 @@ async function createUser(admin: Admin, body: Record<string, unknown>) {
     throw new HttpError(500, `No se pudo completar el alta: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  await audit(admin, "user.create", uid, { email, area, nivel, forzar_cambio_password: forzar });
-  return json({ user: await getUser(admin, uid) }, 201);
+  await audit(admin, "user.create", uid, { email, area, nivel, forzar_cambio_password: forzar, acceso_por_correo: true });
+  return json({ user: await getUser(admin, uid), correo: { enviado: true } }, 201);
 }
 
 async function patchUser(admin: Admin, userId: string, body: Record<string, unknown>) {
@@ -335,11 +324,15 @@ async function resetPassword(admin: Admin, userId: string, body: Record<string, 
   const { data: target, error: tErr } = await admin.auth.admin.getUserById(userId);
   if (tErr || !target.user) throw new HttpError(404, "Usuario no encontrado");
 
-  const dada = typeof body.password === "string" && body.password.length > 0;
-  if (dada && (body.password as string).length < 8) {
-    throw new HttpError(400, "La contraseña debe tener al menos 8 caracteres");
-  }
-  const password = dada ? (body.password as string) : generateTemporaryPassword();
+  const email = target.user.email;
+  if (!email) throw new HttpError(400, "La persona no tiene correo registrado");
+  const nombre = ((target.user.user_metadata as Record<string, unknown> | undefined)?.full_name as string | undefined) || email;
+
+  // Se genera aquí y viaja solo por correo. Si el correo no sale, NO se cambia la contraseña
+  // (si no, la persona quedaría sin poder entrar y nadie conocería la nueva).
+  const password = generarPassword();
+  const envio = await enviarAcceso(email, nombre, password, true);
+  if (!envio.ok) throw new HttpError(envio.motivo === "no_configurado" ? 503 : 502, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO");
 
   const { error } = await admin.auth.admin.updateUserById(userId, {
     password,
@@ -350,9 +343,8 @@ async function resetPassword(admin: Admin, userId: string, body: Record<string, 
   const { error: pErr } = await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", userId);
   if (pErr) throw new HttpError(500, pErr.message);
 
-  await audit(admin, "user.reset_password", userId, { generada: !dada });
-  // La contraseña temporal sólo se devuelve cuando la generó el puente.
-  return json(dada ? { ok: true, user_id: userId } : { ok: true, user_id: userId, temporary_password: password });
+  await audit(admin, "user.reset_password", userId, { acceso_por_correo: true });
+  return json({ ok: true, user_id: userId, correo: { enviado: true } });
 }
 
 // ── Configuración ───────────────────────────────────────────────────────────
