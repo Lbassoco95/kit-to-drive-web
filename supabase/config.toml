@@ -1,0 +1,11 @@
+project_id = "dmhzhyeivvuliumcgsmm"
+
+[functions.seed-demo-users]
+# Obliga JWT; la función además rechaza en runtime salvo lab con secreto.
+verify_jwt = true
+
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.complete-password-change]
+verify_jwt = true
