@@ -112,6 +112,7 @@ INSERT INTO public.migraciones_aplicadas (script, estado, notas) VALUES
   ('20261007000004_modo_prueba_tablas_nuevas', 'aplicado', 'verificada con diagnostico_esquema.sql 2026-10-09'),
   ('20261008000001_compras_supervisa_remisiones', 'aplicado', 'verificada con diagnostico_esquema.sql 2026-10-09'),
   ('20261008000002_compras_supervisa_remisiones_refacciones', 'aplicado', 'verificada con diagnostico_esquema.sql 2026-10-09'),
+  ('20261008000003_compras_lee_motocarros', 'aplicado', 'verificada 2026-10-09 (política ya aplicada en la base)'),
   ('fix_remisiones_columns', 'aplicado', 'verificada con diagnostico_esquema.sql 2026-10-09')
 ON CONFLICT (script) DO NOTHING;
 

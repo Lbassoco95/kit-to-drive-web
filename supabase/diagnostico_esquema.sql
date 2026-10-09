@@ -422,6 +422,7 @@ WITH esperado(script, objeto) AS (VALUES
   ('20261008000002_compras_supervisa_remisiones_refacciones', 'funcion|actualizar_envio_remision_refaccion(uuid,jsonb)|compras_supervisa_remisiones'),
   ('20261008000002_compras_supervisa_remisiones_refacciones', 'funcion|cancelar_linea_refaccion(uuid,text)|compras_supervisa_remisiones'),
   ('20261008000002_compras_supervisa_remisiones_refacciones', 'funcion|cancelar_remision_refacciones(uuid,text)|compras_supervisa_remisiones'),
+  ('20261008000003_compras_lee_motocarros', 'politica|motocarros.compras lee motocarros|es_compras'),
 
   -- MATI Admin ↔ Kit-to-Drive: módulos, soporte y bitácora del puente.
   ('20261009000001_mati_admin_modulos_soporte', 'tabla|app_modulos'),
