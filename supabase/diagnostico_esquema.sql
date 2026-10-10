@@ -431,7 +431,15 @@ WITH esperado(script, objeto) AS (VALUES
   ('20261009000001_mati_admin_modulos_soporte', 'tabla|bridge_bitacora'),
   ('20261009000001_mati_admin_modulos_soporte', 'politica|app_modulos.leer modulos activos'),
   ('20261009000001_mati_admin_modulos_soporte', 'politica|soporte_tickets.crear ticket propio'),
-  ('20261009000001_mati_admin_modulos_soporte', 'politica|soporte_mensajes.responder en mi ticket')
+  ('20261009000001_mati_admin_modulos_soporte', 'politica|soporte_mensajes.responder en mi ticket'),
+
+  -- Cierre de seguridad y altas por administrador (2026-10-09/10).
+  -- 20261009000002 y 20261010000001 son scripts de PERMISOS: no crean objetos. Aquí solo se
+  -- comprueba que la función exista; el permiso real lo verifica la consulta final de cada script.
+  ('20261009000002_cerrar_puente_heredado_y_funciones_anon', 'funcion|usuario_activo(uuid)'),
+  ('20261010000001_arreglo_permiso_trigger_auth', 'funcion|handle_new_user()'),
+  ('20261010000002_altas_autorizadas', 'tabla|altas_autorizadas'),
+  ('20261010000002_altas_autorizadas', 'funcion|reject_public_signups()|altas_autorizadas')
 ), superado(script, por) AS (VALUES
   -- Scripts que otro posterior reemplazó por completo (les tiró la función y
   -- la volvió a crear con otra firma). No hay que correrlos y revisarlos
