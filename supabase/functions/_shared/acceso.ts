@@ -91,3 +91,21 @@ export const MENSAJE_CORREO: Record<string, string> = {
   rechazado: "El proveedor de correo rechazó el envío. No se cambió nada.",
   red: "No se pudo contactar al proveedor de correo. No se cambió nada.",
 };
+
+/**
+ * Autoriza por 3 minutos la creación de una cuenta con este correo. El candado
+ * de la base (reject_public_signups) solo deja pasar altas autorizadas, así el
+ * registro público sigue cerrado. Si la tabla aún no existe, no falla: la
+ * creación sigue su curso y el candado decidirá.
+ */
+// deno-lint-ignore no-explicit-any
+export async function autorizarAlta(admin: any, email: string): Promise<void> {
+  try {
+    const { error } = await admin
+      .from("altas_autorizadas")
+      .upsert({ email: email.toLowerCase().trim(), expira_at: new Date(Date.now() + 3 * 60_000).toISOString() });
+    if (error) console.error("altas_autorizadas:", error.message);
+  } catch (e) {
+    console.error("altas_autorizadas:", e instanceof Error ? e.name : "error");
+  }
+}

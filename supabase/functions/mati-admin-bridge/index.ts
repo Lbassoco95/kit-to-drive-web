@@ -25,7 +25,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
+import { autorizarAlta, enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
 
 const AREAS = ["comercial", "fabrica", "almacen_logistica", "administracion", "compras", "direccion"] as const;
 const NIVELES = ["operador", "supervisor", "admin"] as const;
@@ -228,6 +228,8 @@ async function createUser(admin: Admin, body: Record<string, unknown>) {
   const envio = await enviarAcceso(email, nombre, password, false);
   if (!envio.ok) throw new HttpError(424, MENSAJE_CORREO[envio.motivo], "CORREO_FALLO"); // 424: mati-api lo reenvía con su mensaje
 
+  // El candado de la base solo deja pasar altas autorizadas (el registro público sigue cerrado).
+  await autorizarAlta(admin, email);
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     password,

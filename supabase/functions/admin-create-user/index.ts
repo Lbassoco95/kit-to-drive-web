@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
+import { autorizarAlta, enviarAcceso, generarPassword, MENSAJE_CORREO } from "../_shared/acceso.ts";
 
 const ALLOWED_ORIGINS = [
   "https://kit-to-drive.vercel.app",
@@ -181,6 +181,8 @@ serve(async (req) => {
       }
       uid = existente.id;
     } else {
+      // El candado de la base solo deja pasar altas autorizadas (el registro público sigue cerrado).
+      await autorizarAlta(supabaseAdmin, email);
       const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
