@@ -7,3 +7,8 @@ Back de Dazon: base de datos y funciones de servidor en Supabase.
 - `docs/` — arquitectura en capas y reglas para no romper producción.
 
 El front vive en `lbassoco95/kit-to-drive` (Vercel). Orden de cambios: primero el back, después el front.
+
+## Guía del equipo
+
+Comandos de pruebas, qué hacer al agregar migraciones o funciones y protecciones manuales:
+[`docs/guia-del-equipo.md`](docs/guia-del-equipo.md).
