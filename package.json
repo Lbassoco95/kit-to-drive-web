@@ -1,0 +1,14 @@
+{
+  "name": "kit-to-drive-web",
+  "private": true,
+  "type": "module",
+  "description": "Back de Kit-to-Drive: migraciones, Edge Functions, diagnóstico y sus pruebas",
+  "scripts": {
+    "test": "vitest run",
+    "contrato": "node scripts/generar-contrato.mjs",
+    "deno:test": "cd supabase/functions/mati-admin-bridge && deno run --allow-env --import-map _tests/import_map.json _tests/test.ts && deno run --allow-env _tests/acceso.test.ts"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
